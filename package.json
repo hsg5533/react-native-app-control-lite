@@ -2,6 +2,14 @@
   "name": "react-native-app-control-lite",
   "version": "0.1.0",
   "description": "Lightweight restart/reload/exit helpers for React Native apps (Android restart, iOS reload).",
+  "homepage": "https://github.com/hsg5533/react-native-app-control-lite#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hsg5533/react-native-app-control-lite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hsg5533/react-native-app-control-lite/issues"
+  },
   "main": "src/index.ts",
   "react-native": "src/index.ts",
   "types": "src/index.ts",
