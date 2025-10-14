@@ -1,0 +1,20 @@
+{
+  "name": "react-native-app-control-lite",
+  "version": "0.1.0",
+  "description": "Lightweight restart/reload/exit helpers for React Native apps (Android restart, iOS reload).",
+  "main": "src/index.ts",
+  "react-native": "src/index.ts",
+  "types": "src/index.ts",
+  "files": [
+    "src",
+    "android",
+    "ios",
+    "react-native.config.js",
+    "README.md"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": ">=0.71.0"
+  }
+}
