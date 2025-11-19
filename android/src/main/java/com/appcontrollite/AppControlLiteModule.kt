@@ -2,14 +2,11 @@ package com.appcontrollite
 
 import android.content.ComponentName
 import android.content.Intent
-import android.os.Handler
-import android.os.Looper
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.UiThreadUtil
-import kotlin.system.exitProcess
 
 class AppControlLiteModule(private val appContext: ReactApplicationContext) 
   : ReactContextBaseJavaModule(appContext) {
@@ -17,11 +14,11 @@ class AppControlLiteModule(private val appContext: ReactApplicationContext)
   override fun getName() = "AppControlLite"
 
   /**
-   * 깔끔한 무애니메이션 재시작:
-   * - UI 스레드에서 런처 액티비티를 새 태스크로 시작
-   * - 기존 태스크 비우기
-   * - 애니메이션 제거
-   * - 약간의 지연 뒤 프로세스 종료(잔여 리소스 정리)
+   * 앱 재시작 (RN 0.77 / 0.81 공용, Android 15 대응)
+   *
+   * - 런처 액티비티 인텐트로 새 태스크 시작
+   * - 기존 액티비티 스택 정리
+   * - 프로세스를 직접 kill 하지 않음 (exitProcess 제거)
    */
   @ReactMethod
   fun restart(promise: Promise) {
@@ -29,39 +26,40 @@ class AppControlLiteModule(private val appContext: ReactApplicationContext)
       val pm = appContext.packageManager
       val launchIntent = pm.getLaunchIntentForPackage(appContext.packageName)
         ?: throw Exception("Launch intent not found")
-
       val component: ComponentName = launchIntent.component
         ?: throw Exception("Launch component not found")
-
-      val restartIntent = Intent.makeRestartActivityTask(component).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
-        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+      val restartIntent = Intent(launchIntent).apply {
+        component?.let { setComponent(it) }
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
       }
 
       UiThreadUtil.runOnUiThread {
         val activity = reactApplicationContext.currentActivity
-
         try {
           activity?.overridePendingTransition(0, 0)
         } catch (_: Throwable) {
           // no-op
         }
-
-        appContext.startActivity(restartIntent)
-
-        Handler(Looper.getMainLooper()).postDelayed({
-          promise.resolve(true)
-          exitProcess(0)
-        }, 250)
+        if (activity != null) {
+          // 현재 액티비티 기준으로 재시작
+          activity.startActivity(restartIntent)
+        } else {
+          // Activity 없으면 Context 기준으로라도 시작
+          appContext.startActivity(restartIntent)
+        }
+        promise.resolve(true)
       }
-
     } catch (e: Exception) {
       promise.reject("E_RESTART", e)
     }
   }
 
+  /**
+   * 현재 Activity recreate (테마/언어 변경 등)
+   */
   @ReactMethod
   fun recreate(promise: Promise) {
     try {
@@ -71,7 +69,6 @@ class AppControlLiteModule(private val appContext: ReactApplicationContext)
           promise.reject("E_RECREATE", "No current activity")
           return@runOnUiThread
         }
-
         try {
           activity.overridePendingTransition(0, 0)
           activity.recreate()
@@ -86,6 +83,10 @@ class AppControlLiteModule(private val appContext: ReactApplicationContext)
     }
   }
 
+  /**
+   * 앱 종료
+   * - 여기서는 finishAffinity() + 프로세스 종료를 유지 (원래 의도대로)
+   */
   @ReactMethod
   fun exitApp(promise: Promise) {
     try {
@@ -98,7 +99,8 @@ class AppControlLiteModule(private val appContext: ReactApplicationContext)
         }
         promise.resolve(true)
         activity?.finishAffinity()
-        exitProcess(0)
+        // 완전 종료가 목적이니까 여기서는 그대로 사용
+        kotlin.system.exitProcess(0)
       }
     } catch (e: Exception) {
       promise.reject("E_EXIT", e)
